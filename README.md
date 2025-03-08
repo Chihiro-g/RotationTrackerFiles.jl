@@ -15,7 +15,7 @@ pkg> add https://github.com/Chihiro-g/RotationTrackerFiles.jl.git
 using RotationTrackerFiles
 ```
 
-ここではframe rateを取得する関数 `get_rt_fps()`を例にして説明します．  
+ここでは`# frame rate`を取得する関数 `get_rt_fps()`を例にして説明します．  
 実装されている全ての関数・マクロの引数はRotation Trackerの解析結果のテキストファイルのパスです．
 
 ```julia
