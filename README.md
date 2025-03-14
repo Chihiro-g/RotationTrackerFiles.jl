@@ -8,11 +8,11 @@ pkg> add https://github.com/Chihiro-g/RotationTrackerFiles.jl.git
 ```
 
 ## アップデート
-juliaのREPL上で以下のコマンドを実行するとインストールされているRotationTrackerFilesのバージョンが確認できます．
+juliaのパッケージモードで以下のコマンドを実行すると，インストールされているRotationTrackerFilesのバージョンが確認できます．
 ```sh
 pkg> st RotationTrackerFiles
 ```
-もし，最新版ではない場合，以下のコマンドでアップデートしてください．
+もし最新版ではない場合，以下のコマンドでアップデートしてください．
 ```sh
 pkg> up RotationTrackerFiles
 ```
