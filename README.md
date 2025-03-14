@@ -2,10 +2,8 @@
 **RotationTrackerFiles.jl**は，Rotation Tracker (ver.20240515)の解析結果であるテキストファイルを読むためのjulia用パッケージです．
 
 ## インストール
-juliaのREPL上で以下のコマンドを実行してください．
-
+juliaのREPL上で`]`を入力してパッケージモードに入り，以下のコマンドを実行してください．
 ```sh
-julia> ]
 pkg> add https://github.com/Chihiro-g/RotationTrackerFiles.jl.git
 ```
 
