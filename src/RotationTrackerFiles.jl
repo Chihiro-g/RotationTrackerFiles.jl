@@ -10,7 +10,7 @@ const SUPPORTED_VERSION::String = "20240515"
 #* インデックス
 const LINE_INDEX_FILENAME::Int = 1
 const LINE_INDEX_VERSION::Int = 2
-const LINE_INDEX_LENGTH::Int = 3
+const LINE_INDEX_FRAME_RANGE::Int = 4
 const LINE_INDEX_FRAME_RATE::Int = 12
 const NUM_SKIP_LINES_DATA::Int = 29
 
@@ -107,7 +107,7 @@ end
 #*======================================================================================================================
 #* 実装する関数
 #*======================================================================================================================
-export get_rt_filename, get_rt_length, get_rt_fps, get_rt_x, get_rt_y, get_rt_revolutions, get_rt_revolutions_long, get_rt_data
+export get_rt_filename, get_rt_length, get_rt_frame_range, get_rt_fps, get_rt_x, get_rt_y, get_rt_revolutions, get_rt_revolutions_long, get_rt_data
 
 function get_rt_filename(path::String)
     # ファイルが適切かどうか判定
@@ -130,11 +130,29 @@ function get_rt_length(path::String)
     show_error(is_rotation_tracker_file(path))
     # データの長さを取得
     try
-        line = get_line_in_file(path, LINE_INDEX_LENGTH)
-        return extract_int_number_in_line(line)
+        line = get_line_in_file(path, LINE_INDEX_FRAME_RANGE)
+        frame_start, frame_end = split(line, '\t')[2] |> s -> split(s, '-') .|> s -> parse(Int, s)
+        return frame_end - frame_start + 1
     catch error
         if typeof(error) == Symbol
-            show_error(error, var=LINE_INDEX_LENGTH)
+            show_error(error, var=LINE_INDEX_FRAME_RANGE)
+        else
+            throw(error)
+        end
+    end
+end
+
+function get_rt_frame_range(path::String)
+    # ファイルが適切かどうか判定
+    show_error(is_rotation_tracker_file(path))
+    # frame rangeを取得
+    try
+        line = get_line_in_file(path, LINE_INDEX_FRAME_RANGE)
+        frame_start, frame_end = split(line, '\t')[2] |> s -> split(s, '-') .|> s -> parse(Int, s) + 1
+        return frame_start:frame_end
+    catch error
+        if typeof(error) == Symbol
+            show_error(error, var=LINE_INDEX_FRAME_RANGE)
         else
             throw(error)
         end
@@ -248,20 +266,23 @@ function get_rt_data(path::String)
         open(path) do file
             # filename,length,fps
             filename = ""
-            len_data = 0
+            frame_start = 0
+            frame_end = 0
             fps = 0.0
             for idx in 1:NUM_SKIP_LINES_DATA
                 line = readline(file)
                 if idx == LINE_INDEX_FILENAME
                     filename = split(line, '\t')[2]
                 end
-                if idx == LINE_INDEX_LENGTH
-                    len_data = extract_int_number_in_line(line)
+                if idx == LINE_INDEX_FRAME_RANGE
+                    frame_start, frame_end = split(line, '\t')[2] |> s -> split(s, '-') .|> s -> parse(Int, s)
                 end
                 if idx == LINE_INDEX_FRAME_RATE
                     fps = extract_float_number_in_line(line)
                 end
             end
+            len_data = frame_end - frame_start + 1
+            frame_range = (frame_start+1):(frame_end+1)
             # data
             data_x = Vector{Float64}(undef, len_data)
             data_y = Vector{Float64}(undef, len_data)
@@ -283,6 +304,7 @@ function get_rt_data(path::String)
             return (
                 filename=filename,
                 length=len_data,
+                frame_range=frame_range,
                 fps=fps,
                 x=data_x,
                 y=data_y,
@@ -302,7 +324,7 @@ end
 #*======================================================================================================================
 #* 実装するマクロ
 #*======================================================================================================================
-export @rt_filename, @rt_length, @rt_fps, @rt_x, @rt_y, @rt_revolutions, @rt_revolutions_long, @rt_data
+export @rt_filename, @rt_length, @rt_frame_range, @rt_fps, @rt_x, @rt_y, @rt_revolutions, @rt_revolutions_long, @rt_data
 
 macro rt_filename(path)
     return :( get_rt_filename($(esc(path))) )
@@ -310,6 +332,10 @@ end
 
 macro rt_length(path)
     return :( get_rt_length($(esc(path))) )
+end
+
+macro rt_frame_range(path)
+    return :( get_rt_frame_range($(esc(path))) )
 end
 
 macro rt_fps(path)
