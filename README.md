@@ -40,10 +40,16 @@ get_rt_fps(path)
   * **マクロ：** `@rt_filename`
 
 * `get_rt_length(path::String)::Int`
-  * **説明：** 3行目の`# length`を取得する.
+  * **説明：** `# [data]`の各列の長さを取得する．rotation trackerで動画の途中から解析した場合は３行目の`# length`の値と異なるので注意．
   * **引数：** 解析結果のテキストファイルのパス(`String`)
-  * **戻り値：** 3行目の`# length`(`Int`)
+  * **戻り値：** `# [data]`の各列の長さ(`Int`)
   * **マクロ：** `@rt_length`
+ 
+* `get_rt_frame_range(path::String)::UnitRange{Int64}`
+  * **説明：** 4行目の`# frmae range`を`UnitRange{Int64}`で取得する．
+  * **引数：** 解析結果のテキストファイルのパス(`String`)
+  * **戻り値：** 4行目の`# frmae range`(`UnitRange{Int64}`)
+  * **マクロ：** `@rt_frame_range`
 
 * `get_rt_fps(path::String)::Float64`
   * **説明：** 12行目の`# frame rate`を取得する.
@@ -81,6 +87,7 @@ get_rt_fps(path)
   * **戻り値：**　`NamedTuple`で戻す．keysは，
     * `:filename`
     * `:length`
+    * `:frame_range`
     * `:fps`
     * `:x`
     * `:y`
