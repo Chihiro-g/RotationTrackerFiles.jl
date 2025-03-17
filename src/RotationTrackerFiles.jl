@@ -14,16 +14,13 @@ const LINE_INDEX_FRAME_RANGE::Int = 4
 const LINE_INDEX_FRAME_RATE::Int = 12
 const NUM_SKIP_LINES_DATA::Int = 29
 
-#* 正規表現
-const NUMBER_REGEX::Regex = r"-?\d+(\.\d+)?"
-
 #*======================================================================================================================
 #* 汎用関数
 #*======================================================================================================================
 
 #* 特定の行だけ取得する
 function get_line_in_file(path::String, line_index::Int)
-    line = open(path) do file
+    open(path) do file
         for (idx, line) in enumerate(eachline(file))
             if idx == line_index
                 return line
@@ -31,20 +28,6 @@ function get_line_in_file(path::String, line_index::Int)
         end
         throw(:line_index_out_of_range)
     end
-    return line
-end
-
-#* １行から数値だけを抜き出す
-# Int
-function extract_int_number_in_line(str::String)
-    num = occursin(NUMBER_REGEX, str) ? match(NUMBER_REGEX, str).match : throw(:no_number_in_the_line)
-    return parse(Int, num)
-end
-
-# Float64
-function extract_float_number_in_line(str::String)
-    num = occursin(NUMBER_REGEX, str) ? match(NUMBER_REGEX, str).match : throw(:no_number_in_the_line)
-    return parse(Float64, num)
 end
 
 #* 入力したpathがRotation Trackerのファイルかどうかを判定する
@@ -78,27 +61,27 @@ function show_error(sym::Symbol; var::String="")
     end
     # ファイルが存在しない
     if sym == :file_not_found
-        error("The file does not exist.")
+        error("The file is not found. (path = $var)")
     end
     # テキストファイルではない
     if sym == :not_text_file
-        error("The file is not a text file.")
+        error("The file is not a text file. (path = $var)")
     end
     # Rotation Trackerのファイルではない
     if sym == :not_rotation_tracker_file
-        error("The file is not a Rotation Tracker file.")
+        error("The file is not a Rotation Tracker file. (path = $var)")
     end
     # 対応していないバージョン
     if sym == :unsupported_version
-        error("The version of the file is not supported. The supported version is $SUPPORTED_VERSION.")
+        error("The version of the file is not supported. (path = $var)")
     end
     # 読む行が範囲外
     if sym == :line_index_out_of_range
         error("The line index $(var) is out of range.")
     end
-    # 行に数値が見つからない
-    if sym == :no_number_in_the_line
-        error("No number is found in the line. (line index = $(var))")
+    # fpsが一致していない
+    if sym == :fps_not_match
+        error("The fps of the two files are not matched.")
     end
     # その他のエラー
     error("Unexpected error is occurred")
@@ -107,27 +90,28 @@ end
 #*======================================================================================================================
 #* 実装する関数
 #*======================================================================================================================
-export get_rt_filename, get_rt_length, get_rt_frame_range, get_rt_fps, get_rt_x, get_rt_y, get_rt_revolutions, get_rt_revolutions_long, get_rt_data
 
+export get_rt_filename
 function get_rt_filename(path::String)
     # ファイルが適切かどうか判定
-    show_error(is_rotation_tracker_file(path))
+    show_error(is_rotation_tracker_file(path), var=path)
     # ファイル名を取得
     try
         line = get_line_in_file(path, LINE_INDEX_FILENAME)
         return split(line, '\t')[2]
     catch error
         if typeof(error) == Symbol
-            show_error(error, var=LINE_INDEX_FILENAME)
+            show_error(error, var=string(LINE_INDEX_FILENAME))
         else
             throw(error)
         end
     end
 end
 
+export get_rt_length
 function get_rt_length(path::String)
     # ファイルが適切かどうか判定
-    show_error(is_rotation_tracker_file(path))
+    show_error(is_rotation_tracker_file(path), var=path)
     # データの長さを取得
     try
         line = get_line_in_file(path, LINE_INDEX_FRAME_RANGE)
@@ -135,16 +119,17 @@ function get_rt_length(path::String)
         return frame_end - frame_start + 1
     catch error
         if typeof(error) == Symbol
-            show_error(error, var=LINE_INDEX_FRAME_RANGE)
+            show_error(error, var=string(LINE_INDEX_FRAME_RANGE))
         else
             throw(error)
         end
     end
 end
 
+export get_rt_frame_range
 function get_rt_frame_range(path::String)
     # ファイルが適切かどうか判定
-    show_error(is_rotation_tracker_file(path))
+    show_error(is_rotation_tracker_file(path), var=path)
     # frame rangeを取得
     try
         line = get_line_in_file(path, LINE_INDEX_FRAME_RANGE)
@@ -152,29 +137,31 @@ function get_rt_frame_range(path::String)
         return frame_start:frame_end
     catch error
         if typeof(error) == Symbol
-            show_error(error, var=LINE_INDEX_FRAME_RANGE)
+            show_error(error, var=string(LINE_INDEX_FRAME_RANGE))
         else
             throw(error)
         end
     end
 end
 
+export get_rt_fps
 function get_rt_fps(path::String)
     # ファイルが適切かどうか判定
-    show_error(is_rotation_tracker_file(path))
+    show_error(is_rotation_tracker_file(path), var=path)
     # fpsを取得
     try
         line = get_line_in_file(path, LINE_INDEX_FRAME_RATE)
-        return extract_float_number_in_line(line)
+        return split(line, '\t')[2] |> s -> parse(Float64, s)
     catch error
         if typeof(error) == Symbol
-            show_error(error, var=LINE_INDEX_FRAME_RATE)
+            show_error(error, var=string(LINE_INDEX_FRAME_RATE))
         else
             throw(errror)
         end
     end
 end
 
+export get_rt_x
 function get_rt_x(path::String)
     # データの長さを取得， この関数内でファイルが適切かどうかも判定
     len_data = get_rt_length(path)
@@ -196,6 +183,7 @@ function get_rt_x(path::String)
     end
 end
 
+export get_rt_y
 function get_rt_y(path::String)
     # データの長さを取得， この関数内でファイルが適切かどうかも判定
     len_data = get_rt_length(path)
@@ -217,6 +205,7 @@ function get_rt_y(path::String)
     end
 end
 
+export get_rt_revolutions
 function get_rt_revolutions(path::String)
     # データの長さを取得， この関数内でファイルが適切かどうかも判定
     len_data = get_rt_length(path)
@@ -238,6 +227,7 @@ function get_rt_revolutions(path::String)
     end
 end
 
+export get_rt_revolutions_long
 function get_rt_revolutions_long(path::String)
     # データの長さを取得， この関数内でファイルが適切かどうかも判定
     len_data = get_rt_length(path)
@@ -258,10 +248,11 @@ function get_rt_revolutions_long(path::String)
     end
 end
 
+export get_rt_data
 function get_rt_data(path::String)
     # ファイルが適切かどうか判定
-    show_error(is_rotation_tracker_file(path))
-    # データを取得
+    show_error(is_rotation_tracker_file(path), var=path)
+    # データの取得
     try
         open(path) do file
             # filename,length,fps
@@ -278,7 +269,7 @@ function get_rt_data(path::String)
                     frame_start, frame_end = split(line, '\t')[2] |> s -> split(s, '-') .|> s -> parse(Int, s)
                 end
                 if idx == LINE_INDEX_FRAME_RATE
-                    fps = extract_float_number_in_line(line)
+                    fps = split(line, '\t')[2] |> s -> parse(Float64, s)
                 end
             end
             len_data = frame_end - frame_start + 1
@@ -321,45 +312,142 @@ function get_rt_data(path::String)
     end
 end
 
+#* 2粒子用
+function get_rt_data(path1::String, path2::String)
+    # ファイルが適切かどうか判定
+    show_error(is_rotation_tracker_file(path1), var=path1)
+    show_error(is_rotation_tracker_file(path2), var=path2)
+    # データの取得
+    try
+        open(path1) do file1
+            open(path2) do file2
+                # filename,length,fps
+                filename1, filename2 = "", ""
+                frame_start1, frame_start2 = 0, 0
+                frame_end1, frame_end2 = 0, 0
+                fps = 0.0
+                for (idx, lines) in enumerate(zip(eachline(file1), eachline(file2)))
+                    idx == NUM_SKIP_LINES_DATA && break
+                    # filename
+                    if idx == LINE_INDEX_FILENAME
+                        filename1 = split(lines[1], '\t')[2]
+                        filename2 = split(lines[2], '\t')[2]
+                    end
+                    # frame_range
+                    if idx == LINE_INDEX_FRAME_RANGE
+                        frame_start1, frame_end1 = split(lines[1], '\t')[2] |> s -> split(s, '-') .|> s -> parse(Int, s) + 1
+                        frame_start2, frame_end2 = split(lines[2], '\t')[2] |> s -> split(s, '-') .|> s -> parse(Int, s) + 1
+                    end
+                    # fps
+                    if idx == LINE_INDEX_FRAME_RATE
+                        fps1 = split(lines[1], '\t')[2] |> s -> parse(Float64, s)
+                        fps2 = split(lines[2], '\t')[2] |> s -> parse(Float64, s)
+                        fps1 != fps2 && show_error(:fps_not_match)
+                        fps = fps1
+                    end
+                end
+                max_frame_start = max(frame_start1, frame_start2)
+                min_frame_end = min(frame_end1, frame_end2)
+                len_data = min_frame_end - max_frame_start + 1
+                frame_range = max_frame_start:min_frame_end
+                # skip
+                for _ in 1:(max_frame_start-frame_start1) readline(file1) end
+                for _ in 1:(max_frame_start-frame_start2) readline(file2) end
+                # data
+                data_x1 = Vector{Float64}(undef, len_data)
+                data_x2 = Vector{Float64}(undef, len_data)
+                data_y1 = Vector{Float64}(undef, len_data)
+                data_y2 = Vector{Float64}(undef, len_data)
+                for frame in 1:len_data
+                    line1 = readline(file1)
+                    line2 = readline(file2)
+                    idx_start = findfirst('\t', line1) + 1
+                    idx_end = findnext('\t', line1, idx_start) - 1
+                    data_x1[frame] = parse(Float64, SubString(line1, idx_start, idx_end))
+                    idx_start = idx_end + 2
+                    idx_end = findnext('\t', line1, idx_start) - 1
+                    data_y1[frame] = parse(Float64, SubString(line1, idx_start, idx_end))
+                    idx_start = findfirst('\t', line2) + 1
+                    idx_end = findnext('\t', line2, idx_start) - 1
+                    data_x2[frame] = parse(Float64, SubString(line2, idx_start, idx_end))
+                    idx_start = idx_end + 2
+                    idx_end = findnext('\t', line2, idx_start) - 1
+                    data_y2[frame] = parse(Float64, SubString(line2, idx_start, idx_end))
+                end
+                # distance
+                distance = Vector{Float64}(undef, len_data)
+                @. distance = sqrt((data_x1 - data_x2)^2 + (data_y1 - data_y2)^2)
+                return (
+                    filename = [filename1, filename2],
+                    length = len_data,
+                    frame_range = frame_range,
+                    fps = fps,
+                    x = [data_x1, data_x2],
+                    y = [data_y1, data_y2],
+                    distance = distance
+                    )
+            end
+        end
+    catch error
+        if typeof(error) == Symbol
+            show_error(error)
+        else
+            throw(error)
+        end
+    end
+end
+
 #*======================================================================================================================
 #* 実装するマクロ
 #*======================================================================================================================
-export @rt_filename, @rt_length, @rt_frame_range, @rt_fps, @rt_x, @rt_y, @rt_revolutions, @rt_revolutions_long, @rt_data
 
+export @rt_filename
 macro rt_filename(path)
     return :( get_rt_filename($(esc(path))) )
 end
 
+export @rt_length
 macro rt_length(path)
     return :( get_rt_length($(esc(path))) )
 end
 
+export @rt_frame_range
 macro rt_frame_range(path)
     return :( get_rt_frame_range($(esc(path))) )
 end
 
+export @rt_fps
 macro rt_fps(path)
     return :( get_rt_fps($(esc(path))) )
 end
 
+export @rt_x
 macro rt_x(path)
     return :( get_rt_x($(esc(path))) )
 end
 
+export @rt_y
 macro rt_y(path)
     return :( get_rt_y($(esc(path))) )
 end
 
+export @rt_revolutions
 macro rt_revolutions(path)
     return :( get_rt_revolutions($(esc(path))) )
 end
 
+export @rt_revolutions_long
 macro rt_revolutions_long(path)
     return :( get_rt_revolutions_long($(esc(path))) )
 end
 
-macro rt_data(path)
-    return :( get_rt_data($(esc(path))) )
+export @rt_data
+macro rt_data(paths...)
+    if length(paths) == 1
+        return :( get_rt_data($(esc(paths[1]))) )
+    elseif length(paths) == 2
+        return :( get_rt_data($(esc(paths[1])), $(esc(paths[2]))) )
+    end
 end
 
 end
