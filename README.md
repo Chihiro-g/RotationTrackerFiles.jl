@@ -23,76 +23,91 @@ pkg> up RotationTrackerFiles
 using RotationTrackerFiles
 ```
 
-ここでは`# frame rate`を取得する関数 `get_rt_fps()`を例にして説明します．  
-実装されている全ての関数・マクロの引数はRotation Trackerの解析結果のテキストファイルのパスです．
+ここでは`# frame rate`を取得する関数 `rt_fps()`を例にして説明します．
+実装されている全ての関数の引数はRotation Trackerの解析結果のテキストファイルのパスです．
 
 ```julia
-get_rt_fps(path)
+rt_fps(path)
 ```
 
-とすることで，解析結果のテキストファイルの12行目に書かれた`# frame rate`が戻り値として`Float64`型で得られます．  
-それぞれの関数には対応したマクロが実装されています．
+とすることで，解析結果のテキストファイルの12行目に書かれた`# frame rate`が戻り値として`Float64`型で得られます．
 
-```julia
-@rt_fps path
-```
-
-とすることで，同様の結果が得られます．お好みで使い分けてください．  
-実装されている関数・マクロは以下を参照してください．
-
-## 関数・マクロ一覧
-* `get_rt_filename(path::String)::String`
+## 関数一覧
+* `rt_filename(path::String)::String`
   * **説明：** 1行目の`# filename`を取得する.
   * **引数：** 解析結果のテキストファイルのパス(`String`)
   * **戻り値：** 1行目の`# filename`(`String`)
-  * **マクロ：** `@rt_filename`
 
-* `get_rt_length(path::String)::Int`
-  * **説明：** `# [data]`の各列の長さを取得する．rotation trackerで動画の途中から解析した場合は３行目の`# length`の値と異なるので注意．
+* `rt_length(path::String)::Int`
+  * **説明：** ３行目の`# length`を取得する．
   * **引数：** 解析結果のテキストファイルのパス(`String`)
   * **戻り値：** `# [data]`の各列の長さ(`Int`)
-  * **マクロ：** `@rt_length`
- 
-* `get_rt_frame_range(path::String)::UnitRange{Int64}`
+
+* `rt_frame_range(path::String)::UnitRange{Int64}`
   * **説明：** 4行目の`# frmae range`を`UnitRange{Int64}`で取得する．
   * **引数：** 解析結果のテキストファイルのパス(`String`)
   * **戻り値：** 4行目の`# frmae range`(`UnitRange{Int64}`)
-  * **マクロ：** `@rt_frame_range`
 
-* `get_rt_fps(path::String)::Float64`
+* `rt_fps(path::String)::Float64`
   * **説明：** 12行目の`# frame rate`を取得する.
   * **引数：** 解析結果のテキストファイルのパス(`String`)
   * **戻り値：** 12行目の`# frame rate`(`Float64`)
-  * **マクロ：** `@rt_fps`
 
-* `get_rt_x(path::String)::Vector{Float64}`
-  * **説明：** 30行目から始まる`# [data]`の`x (pixel)`をベクトルとして取得する.
+* `rt_x(path::String)::Vector{Float64}`
+  * **説明：** 30行目から始まる`# [data]`の`x (pixel)`を配列として取得する.
   * **引数：** 解析結果のテキストファイルのパス(`String`)
-  * **戻り値：** `# [data]`の`x (pixel)`(`Vector{Float64}`)
-  * **マクロ：** `@rt_x`
+  * **オプション引数**
+    * `skip_start::Real` : 単位は秒，データの初めから指定した秒数を飛ばして返す．
+    * `skip_end::Real` : 単位は秒, データの終わりから指定した秒数を落として返す.
+    * `cycle_time::Real` : 単位は秒, サイクル過程のデータの場合，１周期の時間を入力すると, 列優先でreshapeしてデータを返す．最後，1周期に満たないデータは捨てる.
+  * **戻り値：** `# [data]`の`x (pixel)`(`Vector{Float64}`or`Matrix{Float64}`)
 
-* `get_rt_y(path::String)::Vector{Float64}`
-  * **説明：** 30行目から始まる`# [data]`の`y (pixel)`をベクトルとして取得する.
+* `rt_y(path::String)::Vector{Float64}`
+  * **説明：** 30行目から始まる`# [data]`の`y (pixel)`を配列として取得する.
   * **引数：** 解析結果のテキストファイルのパス(`String`)
-  * **戻り値：** `# [data]`の`y (pixel)`(`Vector{Float64}`)
-  * **マクロ：** `@rt_y`
+  * **オプション引数**
+    * `skip_start::Real` : 単位は秒，データの初めから指定した秒数を飛ばして返す．
+    * `skip_end::Real` : 単位は秒, データの終わりから指定した秒数を落として返す.
+    * `cycle_time::Real` : 単位は秒, サイクル過程のデータの場合，１周期の時間を入力すると, 列優先でreshapeしてデータを返す．最後，1周期に満たないデータは捨てる.
+  * **戻り値：** `# [data]`の`y (pixel)`(`Vector{Float64}`or`Matrix{Float64}`)
 
-* `get_rt_revolutions(path::String)::Vector{Float64}`
-  * **説明：** 30行目から始まる`# [data]`の`revolutions`をベクトルとして取得する.
+* `rt_xy(path::String)::NamedTuple`
+  * **説明：** 30行目から始まる`# [data]`の`x (pixel)`と`y (pixel)`をそれぞれ配列として取得する.
   * **引数：** 解析結果のテキストファイルのパス(`String`)
-  * **戻り値：** 30行目から始まる`# [data]`の`revolutions`(`Vector{Float64}`)
-  * **マクロ：** `@rt_revolutions`
+  * **オプション引数**
+    * `skip_start::Real` : 単位は秒，データの初めから指定した秒数を飛ばして返す．
+    * `skip_end::Real` : 単位は秒, データの終わりから指定した秒数を落として返す.
+    * `cycle_time::Real` : 単位は秒, サイクル過程のデータの場合，１周期の時間を入力すると, 列優先でreshapeしてデータを返す．最後，1周期に満たないデータは捨てる.
+  * **戻り値：** `NamedTuple`で戻す．keysは，
+    * `:x`
+    * `:y`
 
-* `get_rt_revolutions_long(path::String)::Vector{Float64}`
-  * **説明：** 30行目から始まる`# [data]`の`revolutions (Long-axis)`をベクトルとして取得する.
+* `rt_revolutions(path::String)::Vector{Float64}`
+  * **説明：** 30行目から始まる`# [data]`の`revolutions`を配列として取得する.
   * **引数：** 解析結果のテキストファイルのパス(`String`)
-  * **戻り値：** 30行目から始まる`# [data]`の`revolutions (Long-axis)`(`Vector{Float64}`)
-  * **マクロ：** `@rt_revolutions_long`
+  * **オプション引数**
+    * `skip_start::Real` : 単位は秒，データの初めから指定した秒数を飛ばして返す．
+    * `skip_end::Real` : 単位は秒, データの終わりから指定した秒数を落として返す.
+    * `cycle_time::Real` : 単位は秒, サイクル過程のデータの場合，１周期の時間を入力すると, 列優先でreshapeしてデータを返す．最後，1周期に満たないデータは捨てる.
+  * **戻り値：** 30行目から始まる`# [data]`の`revolutions`(`Vector{Float64}`or`Matrix{Float64}`)
 
-* `get_rt_data(path::String)::NamedTuple`
-  * **説明：** `# filename`, `# length`, `# fps`, `# [data]`を取得する．`get_rt_data(path).filename`のようにkeyを指定して値を得る．
+* `rt_revolutions_long(path::String)::Vector{Float64}`
+  * **説明：** 30行目から始まる`# [data]`の`revolutions (Long-axis)`を配列として取得する.
   * **引数：** 解析結果のテキストファイルのパス(`String`)
-  * **戻り値：**　`NamedTuple`で戻す．keysは，
+  * **オプション引数**
+    * `skip_start::Real` : 単位は秒，データの初めから指定した秒数を飛ばして返す．
+    * `skip_end::Real` : 単位は秒, データの終わりから指定した秒数を落として返す.
+    * `cycle_time::Real` : 単位は秒, サイクル過程のデータの場合，１周期の時間を入力すると, 列優先でreshapeしてデータを返す．最後，1周期に満たないデータは捨てる.
+  * **戻り値：** 30行目から始まる`# [data]`の`revolutions (Long-axis)`(`Vector{Float64}`or`Matrix{Float64}`)
+
+* `rt_data(path::String)::NamedTuple`
+  * **説明：** `# filename`, `# length`, `# fps`, `# [data]`を取得する．`rt_data(path).filename`のようにkeyを指定して値を得る．
+  * **引数：** 解析結果のテキストファイルのパス(`String`)
+  * **オプション引数**
+    * `skip_start::Real` : 単位は秒，データの初めから指定した秒数を飛ばして返す．
+    * `skip_end::Real` : 単位は秒, データの終わりから指定した秒数を落として返す.
+    * `cycle_time::Real` : 単位は秒, サイクル過程のデータの場合，１周期の時間を入力すると, 列優先でreshapeしてデータを返す．最後，1周期に満たないデータは捨てる.
+  * **戻り値：** `NamedTuple`で戻す．keysは，
     * `:filename`
     * `:length`
     * `:frame_range`
@@ -101,4 +116,12 @@ get_rt_fps(path)
     * `:y`
     * `:revolutions`
     * `:revolutions_long`
-  * **マクロ：** `@rt_data`
+
+* `rt_distance(path1::String, path2::String)::Vector{Float64}`
+  * **説明：** ２つの指定したファイルから`# [data]`から`x`と`y`を取得して，各フレームでの距離(Euclid距離)を計算する.
+  * **引数：** 解析結果のテキストファイルのパスを２つ(`String`)
+  * **オプション引数**
+    * `skip_start::Real` : 単位は秒，データの初めから指定した秒数を飛ばして返す．
+    * `skip_end::Real` : 単位は秒, データの終わりから指定した秒数を落として返す.
+    * `cycle_time::Real` : 単位は秒, サイクル過程のデータの場合，１周期の時間を入力すると, 列優先でreshapeしてデータを返す．最後，1周期に満たないデータは捨てる.
+  * **戻り値：** 各フレームでのEuclid距離(`Vector{Float64}`or`Matrix{Float64}`)
