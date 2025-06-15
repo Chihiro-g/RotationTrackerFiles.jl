@@ -55,30 +55,30 @@ function is_rotation_tracker_file(path::String)
 end
 
 #* スキップするフレームの数を計算する
-function calc_skip_frames(skip_time::Real, fps::Float64)
+function calc_trim_frames(trim_time::Real, fps::Float64)
     # 引数が正しいか判定
-    if skip_time < 0.0 # skip_timeが負ではないか？
-        show_error(:negative_skip_time, var=string(skip_time))
+    if trim_time < 0.0 # trim_timeが負ではないか？
+        show_error(:negative_trim_time, var=string(trim_time))
     end
     if fps < 0.0 # fpsが負ではないか？
         show_error(:negative_fps, var=string(fps))
     end
-    # skip_timeをフレーム数に変換
-    skip_frames = skip_time * fps
-    # skip_framesが整数かどうか？
-    if skip_frames != round(skip_frames)
-        show_error(:skip_frames_is_not_integer, var=string(skip_time))
+    # trim_timeをフレーム数に変換
+    trim_frames = trim_time * fps
+    # trim_framesが整数かどうか？
+    if trim_frames != round(trim_frames)
+        show_error(:trim_frames_is_not_integer, var=string(trim_time))
     end
 
-    return Int(skip_frames)
+    return Int(trim_frames)
 end
 
 #* スキップするフレーム数を考慮してデータの長さを計算
-function calc_len_data(path::String, fps::Float64, skip_start_frames::Int, skip_end_frames::Int, cycle_time::Real)
+function calc_len_data(path::String, fps::Float64, trim_start_frames::Int, trim_end_frames::Int, cycle_time::Real)
     # データの長さを取得
     len_data_full = length(rt_frame_range(path))
     # 返すデータの長さを計算
-    len_data = len_data_full - skip_start_frames - skip_end_frames
+    len_data = len_data_full - trim_start_frames - trim_end_frames
     # len_dataが負ではないか？
     if len_data <= 0.0
         show_error(:negative_len_data, var=string(len_data))
@@ -91,9 +91,9 @@ function calc_len_data(path::String, fps::Float64, skip_start_frames::Int, skip_
     return len_data
 end
 # データの全長さが取得済みな場合
-function calc_len_data(len_data_full::Int, fps::Float64, skip_start_frames::Int, skip_end_frames::Int, cycle_time::Real)
+function calc_len_data(len_data_full::Int, fps::Float64, trim_start_frames::Int, trim_end_frames::Int, cycle_time::Real)
     # 返すデータの長さを計算
-    len_data = len_data_full - skip_start_frames - skip_end_frames
+    len_data = len_data_full - trim_start_frames - trim_end_frames
     # len_dataが負ではないか？
     if len_data <= 0.0
         show_error(:negative_len_data, var=string(len_data))
@@ -169,18 +169,18 @@ function show_error(sym::Symbol; var::String="")
         error("The length of the data is less than one cycle time. (len_data = $var)")
     end
 
-    #* スキップするフレームの数を計算
-    # skip_timeが負
-    if sym == :negative_skip_time
-        error("The skip time must be positive. (skip_time = $var)")
+    #* トリムするフレームの数を計算
+    # trim_timeが負
+    if sym == :negative_trim_time
+        error("The trim time must be positive. (trim_time = $var)")
     end
     # fpsが負
     if sym == :negative_fps
         error("The fps must be positive. (fps = $var)")
     end
-    # skip_framesが整数でない
-    if sym == :skip_frames_is_not_integer
-        error("The skip frames must be integer. (skip_frames = skip_times*fps = $var)")
+    # trim_framesが整数でない
+    if sym == :trim_frames_is_not_integer
+        error("The trim frames must be integer. (trim_frames = trim_times*fps = $var)")
     end
 
     #* 2粒子用
@@ -274,20 +274,20 @@ function rt_fps(path::String)
 end
 
 export rt_x
-function rt_x(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time::Real=0.0)
+function rt_x(path::String; trim_start::Real=0.0, trim_end::Real=0.0, cycle_time::Real=0.0, pixel_size::Real=1.0)
     # スキップするフレーム数を計算
     fps = rt_fps(path) # ここでファイルが適切かどうかも判定
-    skip_start_frames = calc_skip_frames(skip_start, fps)
-    skip_end_frames = calc_skip_frames(skip_end, fps)
+    trim_start_frames = calc_trim_frames(trim_start, fps)
+    trim_end_frames = calc_trim_frames(trim_end, fps)
     # 返すデータの長さを計算
-    len_data = calc_len_data(path, fps, skip_start_frames, skip_end_frames, cycle_time)
+    len_data = calc_len_data(path, fps, trim_start_frames, trim_end_frames, cycle_time)
     # data_xを取得
     try
         open(path) do file
             # 読んだデータを格納する配列を確保
             data_x = Vector{Float64}(undef, len_data)
             # イテレータを作成
-            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+skip_start_frames)
+            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+trim_start_frames)
             iter = Iterators.take(iter, len_data)
             # 各行でタブ区切り2個目の数値を取得
             for (frame, line) in enumerate(iter)
@@ -295,6 +295,8 @@ function rt_x(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time
                 idx_end = findnext('\t', line, idx_start) - 1
                 data_x[frame] = parse(Float64, SubString(line, idx_start, idx_end))
             end
+            # pixel_sizeを掛ける
+            data_x .*= pixel_size
             # サイクル過程に合わせてデータをreshape
             if cycle_time == 0.0 # サイクル過程を考慮しない
                 return data_x
@@ -311,20 +313,20 @@ function rt_x(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time
 end
 
 export rt_y
-function rt_y(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time::Real=0.0)
+function rt_y(path::String; trim_start::Real=0.0, trim_end::Real=0.0, cycle_time::Real=0.0, pixel_size::Real=1.0)
     # スキップするフレーム数を計算
     fps = rt_fps(path) # ここでファイルが適切かどうかも判定
-    skip_start_frames = calc_skip_frames(skip_start, fps)
-    skip_end_frames = calc_skip_frames(skip_end, fps)
+    trim_start_frames = calc_trim_frames(trim_start, fps)
+    trim_end_frames = calc_trim_frames(trim_end, fps)
     # 返すデータの長さを計算
-    len_data = calc_len_data(path, fps, skip_start_frames, skip_end_frames, cycle_time)
+    len_data = calc_len_data(path, fps, trim_start_frames, trim_end_frames, cycle_time)
     # data_yを取得
     try
         open(path) do file
             # 読んだデータを格納する配列を確保
             data_y = Vector{Float64}(undef, len_data)
             # イテレータを作成
-            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+skip_start_frames)
+            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+trim_start_frames)
             iter = Iterators.take(iter, len_data)
             # 各行でタブ区切り2個目の数値を取得
             for (frame, line) in enumerate(iter)
@@ -332,6 +334,8 @@ function rt_y(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time
                 idx_end = findnext('\t', line, idx_start) - 1
                 data_y[frame] = parse(Float64, SubString(line, idx_start, idx_end))
             end
+            # pixel_sizeを掛ける
+            data_y .*= pixel_size
             # サイクル過程に合わせてデータをreshape
             if cycle_time == 0.0 # サイクル過程を考慮しない
                 return data_y
@@ -348,13 +352,13 @@ function rt_y(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time
 end
 
 export rt_xy
-function rt_xy(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time::Real=0.0)
+function rt_xy(path::String; trim_start::Real=0.0, trim_end::Real=0.0, cycle_time::Real=0.0, pixel_size::Real=1.0)
     # スキップするフレーム数を計算
     fps = rt_fps(path) # ここでファイルが適切かどうかも判定
-    skip_start_frames = calc_skip_frames(skip_start, fps)
-    skip_end_frames = calc_skip_frames(skip_end, fps)
+    trim_start_frames = calc_trim_frames(trim_start, fps)
+    trim_end_frames = calc_trim_frames(trim_end, fps)
     # 返すデータの長さを計算
-    len_data = calc_len_data(path, fps, skip_start_frames, skip_end_frames, cycle_time)
+    len_data = calc_len_data(path, fps, trim_start_frames, trim_end_frames, cycle_time)
     # data_x, data_yを取得
     try
         open(path) do file
@@ -362,7 +366,7 @@ function rt_xy(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_tim
             data_x = Vector{Float64}(undef, len_data)
             data_y = Vector{Float64}(undef, len_data)
             # イテレータを作成
-            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+skip_start_frames)
+            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+trim_start_frames)
             iter = Iterators.take(iter, len_data)
             # 各行でタブ区切り2個目の数値と3個目の数値を取得
             for (frame, line) in enumerate(iter)
@@ -373,6 +377,9 @@ function rt_xy(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_tim
                 idx_end = findnext('\t', line, idx_start) - 1
                 data_y[frame] = parse(Float64, SubString(line, idx_start, idx_end))
             end
+            # pixel_sizeを掛ける
+            data_x .*= pixel_size
+            data_y .*= pixel_size
             # サイクル過程に合わせてデータをreshape
             if cycle_time == 0.0 # サイクル過程を考慮しない
                 return (x=data_x, y=data_y)
@@ -392,20 +399,20 @@ function rt_xy(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_tim
 end
 
 export rt_revolutions
-function rt_revolutions(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time::Real=0.0)
+function rt_revolutions(path::String; trim_start::Real=0.0, trim_end::Real=0.0, cycle_time::Real=0.0)
     # スキップするフレーム数を計算
     fps = rt_fps(path) # ここでファイルが適切かどうかも判定s
-    skip_start_frames = calc_skip_frames(skip_start, fps)
-    skip_end_frames = calc_skip_frames(skip_end, fps)
+    trim_start_frames = calc_trim_frames(trim_start, fps)
+    trim_end_frames = calc_trim_frames(trim_end, fps)
     # 返すデータの長さを計算
-    len_data = calc_len_data(path, fps, skip_start_frames, skip_end_frames, cycle_time)
+    len_data = calc_len_data(path, fps, trim_start_frames, trim_end_frames, cycle_time)
     # data_revolutionsを取得
     try
         open(path) do file
             # 読んだデータを格納する配列を確保
             data_revolutions = Vector{Float64}(undef, len_data)
             # イテレータを作成
-            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+skip_start_frames)
+            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+trim_start_frames)
             iter = Iterators.take(iter, len_data)
             # 各行でタブ区切り2個目の数値を取得
             for (frame, line) in enumerate(iter)
@@ -429,20 +436,20 @@ function rt_revolutions(path::String; skip_start::Real=0.0, skip_end::Real=0.0, 
 end
 
 export rt_revolutions_long
-function rt_revolutions_long(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time::Real=0.0)
+function rt_revolutions_long(path::String; trim_start::Real=0.0, trim_end::Real=0.0, cycle_time::Real=0.0)
     # スキップするフレーム数を計算
     fps = rt_fps(path) # ここでファイルが適切かどうかも判定
-    skip_start_frames = calc_skip_frames(skip_start, fps)
-    skip_end_frames = calc_skip_frames(skip_end, fps)
+    trim_start_frames = calc_trim_frames(trim_start, fps)
+    trim_end_frames = calc_trim_frames(trim_end, fps)
     # 返すデータの長さを計算
-    len_data = calc_len_data(path, fps, skip_start_frames, skip_end_frames, cycle_time)
+    len_data = calc_len_data(path, fps, trim_start_frames, trim_end_frames, cycle_time)
     # data_revolutions_longを取得
     try
         open(path) do file
             # 読んだデータを格納する配列を確保
             data_revolutions_long = Vector{Float64}(undef, len_data)
             # イテレータを作成
-            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+skip_start_frames)
+            iter = Iterators.drop(eachline(file), NUM_SKIP_LINES_DATA+trim_start_frames)
             iter = Iterators.take(iter, len_data)
             # 各行でタブ区切り2個目の数値を取得
             for (frame, line) in enumerate(iter)
@@ -465,7 +472,7 @@ function rt_revolutions_long(path::String; skip_start::Real=0.0, skip_end::Real=
 end
 
 export rt_data
-function rt_data(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time::Real=0.0)
+function rt_data(path::String; trim_start::Real=0.0, trim_end::Real=0.0, cycle_time::Real=0.0, pixel_size::Real=1.0)
     # ファイルが適切かどうか判定
     show_error(is_rotation_tracker_file(path), var=path)
     # データの取得
@@ -495,17 +502,17 @@ function rt_data(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_t
 
             # dataの取得
             # スキップするフレーム数を計算
-            skip_start_frames = calc_skip_frames(skip_start, fps)
-            skip_end_frames = calc_skip_frames(skip_end, fps)
+            trim_start_frames = calc_trim_frames(trim_start, fps)
+            trim_end_frames = calc_trim_frames(trim_end, fps)
             # 返すデータの長さを計算
-            len_data = calc_len_data(length(frame_start:frame_end), fps, skip_start_frames, skip_end_frames, cycle_time)
+            len_data = calc_len_data(length(frame_start:frame_end), fps, trim_start_frames, trim_end_frames, cycle_time)
             # 配列を確保
             data_x = Vector{Float64}(undef, len_data)
             data_y = Vector{Float64}(undef, len_data)
             data_revolutions = Vector{Float64}(undef, len_data)
             data_revolutions_long = Vector{Float64}(undef, len_data)
             # イテレータを作成
-            iter = Iterators.drop(eachline(file), skip_start_frames)
+            iter = Iterators.drop(eachline(file), trim_start_frames)
             iter = Iterators.take(iter, len_data)
             for (frame, line) in enumerate(iter)
                 idx_start = findfirst('\t', line) + 1
@@ -520,6 +527,9 @@ function rt_data(path::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_t
                 idx_start = idx_end + 2
                 data_revolutions_long[frame] = parse(Float64, SubString(line, idx_start))
             end
+            # pixel_sizeを掛ける
+            data_x .*= pixel_size
+            data_y .*= pixel_size
             # サイクル過程に合わせてデータをreshape
             if cycle_time == 0.0 # サイクル過程を考慮しない
                 return (
@@ -562,17 +572,17 @@ end
 #*======================================================================================================================
 
 export rt_distance
-function rt_distance(path1::String, path2::String; skip_start::Real=0.0, skip_end::Real=0.0, cycle_time::Real=0.0)
+function rt_distance(path1::String, path2::String; trim_start::Real=0.0, trim_end::Real=0.0, cycle_time::Real=0.0, pixel_size::Real=1.0)
     # ファイルが適切かどうか判定
     show_error(is_rotation_tracker_file(path1), var=path1)
     show_error(is_rotation_tracker_file(path2), var=path2)
     # ２つのファイルの共通するframe rangeとfpsを取得
     frame_range_common, frame_range_1,frame_range_2, fps = get_common_frames_fps(path1, path2)
     # スキップするフレーム数を計算
-    skip_start_frames = calc_skip_frames(skip_start, fps)
-    skip_end_frames = calc_skip_frames(skip_end, fps)
+    trim_start_frames = calc_trim_frames(trim_start, fps)
+    trim_end_frames = calc_trim_frames(trim_end, fps)
     # 返すデータの長さを計算
-    len_data = calc_len_data(length(frame_range_common), fps, skip_start_frames, skip_end_frames, cycle_time)
+    len_data = calc_len_data(length(frame_range_common), fps, trim_start_frames, trim_end_frames, cycle_time)
     # dataの取得
     try
         open(path1) do file1
@@ -580,8 +590,8 @@ function rt_distance(path1::String, path2::String; skip_start::Real=0.0, skip_en
                 # 配列の確保
                 distance = Vector{Float64}(undef, len_data)
                 # イテレータを作成
-                iter_1 = Iterators.drop(eachline(file1), NUM_SKIP_LINES_DATA+first(frame_range_common)-first(frame_range_1)+skip_start_frames)
-                iter_2 = Iterators.drop(eachline(file2), NUM_SKIP_LINES_DATA+first(frame_range_common)-first(frame_range_2)+skip_start_frames)
+                iter_1 = Iterators.drop(eachline(file1), NUM_SKIP_LINES_DATA+first(frame_range_common)-first(frame_range_1)+trim_start_frames)
+                iter_2 = Iterators.drop(eachline(file2), NUM_SKIP_LINES_DATA+first(frame_range_common)-first(frame_range_2)+trim_start_frames)
                 iter_1 = Iterators.take(iter_1, len_data)
                 iter_2 = Iterators.take(iter_2, len_data)
                 iter = enumerate(zip(iter_1, iter_2))
@@ -602,6 +612,8 @@ function rt_distance(path1::String, path2::String; skip_start::Real=0.0, skip_en
                     # 距離を計算
                     distance[frame] = sqrt((x1 - x2)^2 + (y1 - y2)^2)
                 end
+                # pixel_sizeを掛ける
+                distance .*= pixel_size
                 # サイクル過程に合わせてデータをreshape
                 if cycle_time == 0.0 # サイクル過程を考慮しない
                     return distance
